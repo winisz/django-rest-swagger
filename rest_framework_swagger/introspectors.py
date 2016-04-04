@@ -23,6 +23,7 @@ try:
 except ImportError:
     # FIXME once we drop support of DRF 2.x .
     CurrentUserDefault = None
+from rest_framework.serializers import BaseSerializer	
 from rest_framework.utils import formatting
 from django.utils import six
 try:
@@ -480,6 +481,35 @@ class BaseMethodIntrospector(object):
                 elif isinstance(field.choices, dict):
                     f['enum'] = [k for k, v in field.choices.items()]
 
+           # Support for complex types
+            if rest_framework.VERSION < '3.0.0':
+                has_many = (hasattr(field, 'many') and field.many) or hasattr(field, 'child')
+            else:
+                from rest_framework.serializers import ListField, ListSerializer, ManyRelatedField
+                has_many = isinstance(field, (ListField, ListSerializer, ManyRelatedField))
+
+            if isinstance(field, BaseSerializer) or has_many:
+                if isinstance(field, BaseSerializer):
+                    field_serializer = IntrospectorHelper.get_serializer_name(field)
+
+                    if getattr(field, 'write_only', False):
+                        field_serializer = "Write{}".format(field_serializer)
+
+                    f['type'] = field_serializer
+                elif hasattr(field, 'child'):
+                    field_serializer = None
+                    data_type = get_data_type(field.child)[0]
+                else:
+                    field_serializer = None
+                    data_type = 'string'
+
+                if has_many:
+                    f['type'] = 'array'
+                    if field_serializer:
+                        f['items'] = {'$ref': field_serializer}
+                    elif data_type in BaseMethodIntrospector.PRIMITIVES:
+                        f['items'] = {'type': data_type}
+					
             data.append(f)
 
         return data

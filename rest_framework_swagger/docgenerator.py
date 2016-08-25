@@ -355,10 +355,10 @@ class DocumentationGenerator(object):
 
             # Support for complex types
             if rest_framework.VERSION < '3.0.0':
-                has_many = hasattr(field, 'many') and field.many
+                has_many = (hasattr(field, 'many') and field.many) or hasattr(field, 'child')
             else:
-                from rest_framework.serializers import ListSerializer, ManyRelatedField
-                has_many = isinstance(field, (ListSerializer, ManyRelatedField))
+                from rest_framework.serializers import ListField, ListSerializer, ManyRelatedField
+                has_many = isinstance(field, (ListField, ListSerializer, ManyRelatedField))
 
             if isinstance(field, BaseSerializer) or has_many:
                 if isinstance(field, BaseSerializer):
@@ -368,6 +368,9 @@ class DocumentationGenerator(object):
                         field_serializer = "Write{}".format(field_serializer)
 
                     f['type'] = field_serializer
+                elif hasattr(field, 'child'):
+                    field_serializer = None
+                    data_type = get_data_type(field.child)[0]
                 else:
                     field_serializer = None
                     data_type = 'string'
